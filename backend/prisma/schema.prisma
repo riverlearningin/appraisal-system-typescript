@@ -1,0 +1,122 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        Int       @id @default(autoincrement())
+  name      String
+  email     String    @unique
+  password  String
+
+  roles     UserRole[]
+
+  managedRelations UserHierarchy[] @relation("ManagerRelation")
+  employeeRelation UserHierarchy[] @relation("EmployeeRelation")
+
+  employeeReviews Review[] @relation("Employee Reviews")
+  reviewerReviews Review[] @relation("Reviewer Reviews")
+  dynamicPoints   Point[]  @relation("EmployeeDynamicPoints")
+}
+
+model Role {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+
+  users UserRole[]
+}
+
+model UserRole {
+  userId Int
+  roleId Int
+
+  user   User @relation(fields: [userId], references: [id])
+  role   Role @relation(fields: [roleId], references: [id])
+
+  @@id([userId, roleId])
+}
+
+model UserHierarchy {
+  id         Int @id @default(autoincrement())
+  employeeId Int
+  managerId  Int
+
+  employee User @relation("EmployeeRelation", fields: [employeeId], references: [id])
+  manager  User @relation("ManagerRelation", fields: [managerId], references: [id])
+
+  @@unique([employeeId])
+}
+
+model Cycle {
+  id        Int      @id @default(autoincrement())
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  status    String
+  showManagerResponses    Boolean  @default(true)
+  showManagementResponses Boolean  @default(true)
+
+  reviews   Review[]
+  sections  Section[]
+}
+
+model Section {
+  id        Int     @id @default(autoincrement())
+  cycleId   Int?
+  name      String
+  isDynamic Boolean
+
+  cycle     Cycle?  @relation(fields: [cycleId], references: [id])
+  points    Point[]
+}
+
+model Point {
+  id           Int    @id @default(autoincrement())
+  sectionId    Int
+  employeeId   Int?
+  title        String
+  isPredefined Boolean
+
+  section Section @relation(fields: [sectionId], references: [id])
+  employee User? @relation("EmployeeDynamicPoints", fields: [employeeId], references: [id])
+  responses ReviewResponses[]
+}
+
+model Review {
+  id           Int    @id @default(autoincrement())
+  cycleId      Int
+  employeeId   Int
+  reviewerId   Int
+  reviewerRole String
+  status       String
+
+  employee User @relation("Employee Reviews", fields: [employeeId], references: [id])
+  reviewer User @relation("Reviewer Reviews", fields: [reviewerId], references: [id])
+
+  cycle Cycle @relation(fields: [cycleId], references: [id])
+  responses ReviewResponses[]
+
+  createdAt DateTime @default(now())
+
+  @@index([employeeId])
+  @@index([reviewerId])
+  @@index([cycleId])
+
+  @@unique([cycleId, employeeId, reviewerId])
+}
+
+model ReviewResponses {
+  id       Int   @id @default(autoincrement())
+  reviewId Int
+  pointId  Int
+  comment  String
+  rating   Int?
+
+  review Review @relation(fields: [reviewId], references: [id])
+  point Point @relation(fields: [pointId], references: [id])
+
+  @@unique([reviewId, pointId])
+}
