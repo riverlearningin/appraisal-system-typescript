@@ -21,9 +21,12 @@ interface MyProfileResponse {
 function normalizeRoles(roles: string[]): AuthUser['roles'] {
     const allowed = new Set(['employee', 'manager', 'management', 'admin']);
 
-    return roles
-        .map((role) => role.toLowerCase())
+    const normalized = roles
+        .map((role) => role.trim().toLowerCase())
         .filter((role): role is AuthUser['roles'][number] => allowed.has(role));
+
+    // Keep client routing usable even if backend role formatting is unexpected.
+    return normalized.length > 0 ? normalized : ['employee'];
 }
 
 function nameFromEmail(email: string): string {

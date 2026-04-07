@@ -7,7 +7,7 @@ interface RoutePolicy {
 
 const ROUTE_POLICIES: RoutePolicy[] = [
     // Access denied page should be reachable for any authenticated role.
-    { pattern: /^\/access-denied$/, allowedRoles: ['employee', 'manager', 'management', 'admin'] },
+    { pattern: /^\/access-denied\/?$/, allowedRoles: ['employee', 'manager', 'management', 'admin'] },
 
     // Admin-only pages
     { pattern: /^\/admin\/users(?:\/.*)?$/, allowedRoles: ['admin'] },
@@ -18,9 +18,9 @@ const ROUTE_POLICIES: RoutePolicy[] = [
     { pattern: /^\/reviews(?:\/\d+)?$/, allowedRoles: ['employee', 'manager', 'management'] },
 
     // Shared dashboard pages
-    { pattern: /^\/dashboard$/, allowedRoles: ['employee', 'manager', 'management', 'admin'] },
-    { pattern: /^\/reports$/, allowedRoles: ['management'] },
-    { pattern: /^\/profile$/, allowedRoles: ['employee', 'manager', 'management', 'admin'] },
+    { pattern: /^\/dashboard\/?$/, allowedRoles: ['employee', 'manager', 'management', 'admin'] },
+    { pattern: /^\/reports\/?$/, allowedRoles: ['management'] },
+    { pattern: /^\/profile\/?$/, allowedRoles: ['employee', 'manager', 'management', 'admin'] },
 ];
 
 export function getAllowedRolesForPath(pathname: string): Role[] | null {

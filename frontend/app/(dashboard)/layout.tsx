@@ -9,11 +9,14 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { canAccessPath } from '@/lib/auth/route-access';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-    const { user, activeRole, isInitialized } = useAuthStore();
+    const { user, activeRole, isInitialized, switchRole } = useAuthStore();
     const router = useRouter();
     const pathname = usePathname();
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     const isAccessDeniedPath = pathname === '/access-denied';
+    const effectiveRole = user
+        ? (activeRole && user.roles.includes(activeRole) ? activeRole : user.roles[0] ?? null)
+        : null;
 
     const redirectToAccessDenied = () => {
         const params = new URLSearchParams();
@@ -29,19 +32,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             return;
         }
 
-        if (!activeRole || !user.roles.includes(activeRole)) {
+        if (effectiveRole && activeRole !== effectiveRole) {
+            switchRole(effectiveRole);
+        }
+
+        if (!effectiveRole) {
             if (!isAccessDeniedPath) {
                 redirectToAccessDenied();
             }
             return;
         }
 
-        if (!canAccessPath(pathname, activeRole)) {
+        if (!canAccessPath(pathname, effectiveRole)) {
             if (!isAccessDeniedPath) {
                 redirectToAccessDenied();
             }
         }
-    }, [user, activeRole, pathname, isInitialized, router, isAccessDeniedPath]);
+    }, [user, activeRole, effectiveRole, pathname, isInitialized, router, isAccessDeniedPath, switchRole]);
 
     // Don't flash the dashboard before auth resolves
     if (!isInitialized) {
@@ -54,11 +61,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     if (!user) return null;
 
-    if (!activeRole || !user.roles.includes(activeRole)) {
+    if (!effectiveRole) {
         if (!isAccessDeniedPath) return null;
     }
 
-    if (!canAccessPath(pathname, activeRole)) {
+    if (!canAccessPath(pathname, effectiveRole)) {
         if (!isAccessDeniedPath) return null;
     }
 
