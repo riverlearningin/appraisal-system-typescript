@@ -16,14 +16,18 @@ export class AuthController {
     ) {
         const { access_token, user } = await this.authService.login(body.email, body.password);
 
+        const isProduction = process.env.NODE_ENV === 'production';
+        const cookieSameSite = isProduction ? 'none' : 'lax';
+
         res.cookie('access_token', access_token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
+            secure: isProduction,
+            sameSite: cookieSameSite,
             maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+            path: '/',
         });
 
-        return { user }; // Never send the token in body
+        return { user, access_token };
     }
 
     @UseGuards(JwtAuthGuard)
@@ -34,7 +38,15 @@ export class AuthController {
 
     @Post('logout')
     logout(@Res({ passthrough: true }) res: Response) {
-        res.clearCookie('access_token');
+        const isProduction = process.env.NODE_ENV === 'production';
+        const cookieSameSite = isProduction ? 'none' : 'lax';
+
+        res.clearCookie('access_token', {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: cookieSameSite,
+            path: '/',
+        });
         return { message: 'Logged out' };
     }
 

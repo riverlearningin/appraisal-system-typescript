@@ -30,8 +30,11 @@ export default function LoginPage() {
         try {
             await login(data.email, data.password);
             router.replace('/dashboard');
-        } catch {
-            setError('root', { message: 'Invalid email or password' });
+        } catch (error) {
+            const message = error instanceof Error && error.message === 'Unable to establish authenticated session'
+                ? 'Login succeeded but session could not be established. Please allow cookies for this site and try again.'
+                : 'Invalid email or password';
+            setError('root', { message });
         }
     };
 

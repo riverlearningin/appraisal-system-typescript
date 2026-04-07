@@ -11,8 +11,27 @@ async function bootstrap() {
 
     app.use(cookieParser());
 
+    const configuredOrigins = (process.env.FRONTEND_URLS ?? process.env.FRONTEND_URL ?? 'http://localhost:3000')
+        .split(',')
+        .map((origin) => origin.trim().replace(/\/$/, ''))
+        .filter(Boolean);
+
     app.enableCors({
-        origin: process.env.FRONTEND_URL ?? 'http://localhost:3000',
+        origin: (requestOrigin, callback) => {
+            // Allow non-browser or same-origin requests without Origin header.
+            if (!requestOrigin) {
+                callback(null, true);
+                return;
+            }
+
+            const normalizedOrigin = requestOrigin.replace(/\/$/, '');
+            if (configuredOrigins.includes(normalizedOrigin)) {
+                callback(null, true);
+                return;
+            }
+
+            callback(new Error(`CORS blocked origin: ${requestOrigin}`), false);
+        },
         credentials: true, // Required for cookies to be sent cross-origin
     });
 

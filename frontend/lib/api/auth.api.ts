@@ -1,5 +1,6 @@
 import { AuthUser, LoginRequest } from "@/types/auth.types";
 import apiClient from "./client";
+import { clearAccessToken, setAccessToken } from "@/lib/auth/token";
 
 interface AuthMeResponse {
     userId: number;
@@ -28,19 +29,31 @@ function nameFromEmail(email: string): string {
 }
 
 async function getDisplayNameFallback(email: string): Promise<string> {
+    const fallbackName = nameFromEmail(email);
+
     try {
-        const profileRes = await apiClient.get<MyProfileResponse>('/users/my-profile');
+        const profileResPromise = apiClient.get<MyProfileResponse>('/users/my-profile');
+        const timeoutPromise = new Promise<null>((resolve) => {
+            setTimeout(() => resolve(null), 2500);
+        });
+
+        const profileRes = await Promise.race([profileResPromise, timeoutPromise]);
+        if (!profileRes) return fallbackName;
+
         const profileName = profileRes.data?.data?.name?.trim();
-        return profileName || nameFromEmail(email);
+        return profileName || fallbackName;
     } catch {
-        return nameFromEmail(email);
+        return fallbackName;
     }
 }
 
 export const authApi = {
     login: async (data: LoginRequest): Promise<{ user: AuthUser }> => {
-        const res = await apiClient.post<{ user: { id: number; email: string; roles: string[] } }>('/auth/login', data);
+        const res = await apiClient.post<{ user: { id: number; email: string; roles: string[] }; access_token?: string }>('/auth/login', data);
         const rawUser = res.data.user;
+        if (res.data.access_token) {
+            setAccessToken(res.data.access_token);
+        }
         const name = await getDisplayNameFallback(rawUser.email);
 
         return {
@@ -68,6 +81,7 @@ export const authApi = {
 
     logout: async (): Promise<void> => {
         await apiClient.post('/auth/logout');
+        clearAccessToken();
     },
 };
 

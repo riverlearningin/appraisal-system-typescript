@@ -6,11 +6,13 @@ import { Request } from 'express';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
     constructor() {
-        // extract from cookie instead of Authorization header
+        // Support both cookie-based auth and bearer-token fallback.
+        // This avoids auth failures in browsers/environments that block third-party cookies.
         super({
-            jwtFromRequest: (req: Request) => {
-                return req?.cookies?.access_token ?? null;
-            },
+            jwtFromRequest: ExtractJwt.fromExtractors([
+                (req: Request) => req?.cookies?.access_token ?? null,
+                ExtractJwt.fromAuthHeaderAsBearerToken(),
+            ]),
             ignoreExpiration: false,
             secretOrKey: process.env.JWT_SECRET,
         });

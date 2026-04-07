@@ -1,4 +1,5 @@
 import { authApi } from "@/lib/api/auth.api";
+import { clearAccessToken } from "@/lib/auth/token";
 import { AuthUser, Role } from "@/types/auth.types";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
@@ -30,11 +31,11 @@ export const useAuthStore = create<AuthState>()(
             login: async (email, password) => {
                 set({ isLoading: true });
                 try {
-                    const { user: loginUser } = await authApi.login({ email, password });
+                    await authApi.login({ email, password });
 
                     // Wait for cookie-backed session to be readable via /me.
                     // This avoids transient post-login states where dashboard APIs can read as unauthenticated.
-                    let resolvedUser = loginUser;
+                    let resolvedUser: AuthUser | null = null;
                     for (let attempt = 0; attempt < 3; attempt++) {
                         try {
                             resolvedUser = await authApi.me();
@@ -46,9 +47,16 @@ export const useAuthStore = create<AuthState>()(
                         }
                     }
 
+                    if (!resolvedUser) {
+                        clearAccessToken();
+                        set({ user: null, activeRole: null, isLoading: false, isInitialized: true });
+                        throw new Error('Unable to establish authenticated session');
+                    }
+
                     const activeRole = resolveDefaultRole(resolvedUser.roles);
                     set({ user: resolvedUser, activeRole, isLoading: false, isInitialized: true });
                 } catch (err) {
+                    clearAccessToken();
                     set({ isLoading: false });
                     throw err; // Let the form handle the error message
                 }
@@ -70,6 +78,7 @@ export const useAuthStore = create<AuthState>()(
                             : resolveDefaultRole(user.roles);
                     set({ user, activeRole, isInitialized: true });
                 } catch {
+                    clearAccessToken();
                     set({ user: null, activeRole: null, isInitialized: true });
                 }
             },
