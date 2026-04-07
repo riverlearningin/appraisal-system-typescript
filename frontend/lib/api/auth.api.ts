@@ -18,6 +18,14 @@ interface MyProfileResponse {
     };
 }
 
+function normalizeRoles(roles: string[]): AuthUser['roles'] {
+    const allowed = new Set(['employee', 'manager', 'management', 'admin']);
+
+    return roles
+        .map((role) => role.toLowerCase())
+        .filter((role): role is AuthUser['roles'][number] => allowed.has(role));
+}
+
 function nameFromEmail(email: string): string {
     const localPart = email.split('@')[0] ?? 'User';
     if (!localPart) return 'User';
@@ -60,7 +68,7 @@ export const authApi = {
             user: {
                 userId: rawUser.id,
                 email: rawUser.email,
-                roles: rawUser.roles as AuthUser['roles'],
+                roles: normalizeRoles(rawUser.roles),
                 name,
             },
         };
@@ -74,7 +82,7 @@ export const authApi = {
         return {
             userId: rawUser.userId,
             email: rawUser.email,
-            roles: rawUser.roles as AuthUser['roles'],
+            roles: normalizeRoles(rawUser.roles),
             name,
         };
     },

@@ -13,6 +13,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const router = useRouter();
     const pathname = usePathname();
     const [isSidebarOpen, setSidebarOpen] = useState(false);
+    const isAccessDeniedPath = pathname === '/access-denied';
 
     const redirectToAccessDenied = () => {
         const params = new URLSearchParams();
@@ -29,14 +30,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }
 
         if (!activeRole || !user.roles.includes(activeRole)) {
-            redirectToAccessDenied();
+            if (!isAccessDeniedPath) {
+                redirectToAccessDenied();
+            }
             return;
         }
 
         if (!canAccessPath(pathname, activeRole)) {
-            redirectToAccessDenied();
+            if (!isAccessDeniedPath) {
+                redirectToAccessDenied();
+            }
         }
-    }, [user, activeRole, pathname, isInitialized, router]);
+    }, [user, activeRole, pathname, isInitialized, router, isAccessDeniedPath]);
 
     // Don't flash the dashboard before auth resolves
     if (!isInitialized) {
@@ -47,9 +52,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         );
     }
 
-    if (!user || !activeRole || !user.roles.includes(activeRole)) return null;
+    if (!user) return null;
 
-    if (!canAccessPath(pathname, activeRole)) return null;
+    if (!activeRole || !user.roles.includes(activeRole)) {
+        if (!isAccessDeniedPath) return null;
+    }
+
+    if (!canAccessPath(pathname, activeRole)) {
+        if (!isAccessDeniedPath) return null;
+    }
 
     return (
         <div className="flex h-screen bg-slate-50">
