@@ -9,12 +9,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next"
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-    title: 'Appraisal System',
-    icons: {
-        icon: '/company-logo.png',
-        shortcut: '/company-logo.png',
-        apple: '/company-logo.png',
-    },
+    title: 'Appraisal System'
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
