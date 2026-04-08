@@ -19,7 +19,7 @@ const ROUTE_POLICIES: RoutePolicy[] = [
 
     // Shared dashboard pages
     { pattern: /^\/dashboard\/?$/, allowedRoles: ['employee', 'manager', 'management', 'admin'] },
-    { pattern: /^\/reports\/?$/, allowedRoles: ['management'] },
+    { pattern: /^\/reports\/?$/, allowedRoles: ['management', 'admin'] },
     { pattern: /^\/profile\/?$/, allowedRoles: ['employee', 'manager', 'management', 'admin'] },
 ];
 

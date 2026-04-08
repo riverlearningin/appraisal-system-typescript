@@ -120,6 +120,26 @@ export class UsersService {
   }
 
   async getMyTeam(managerId: number) {
+    const requester = await this.prisma.user.findUnique({
+      where: { id: managerId },
+      select: {
+        roles: {
+          select: { role: { select: { name: true } } },
+        },
+      },
+    });
+
+    if (!requester) throw new NotFoundException('User not found');
+
+    const roles = requester.roles.map((r) => r.role.name);
+    if (roles.includes('admin')) {
+      return this.prisma.user.findMany({
+        where: { id: { not: managerId } },
+        select: { id: true, name: true, email: true },
+        orderBy: { name: 'asc' },
+      });
+    }
+
     const relations = await this.prisma.userHierarchy.findMany({
       where: { managerId },
       include: {
@@ -133,6 +153,26 @@ export class UsersService {
   }
 
   async getAllMyTeam(managerId: number) {
+    const requester = await this.prisma.user.findUnique({
+      where: { id: managerId },
+      select: {
+        roles: {
+          select: { role: { select: { name: true } } },
+        },
+      },
+    });
+
+    if (!requester) throw new NotFoundException('User not found');
+
+    const roles = requester.roles.map((r) => r.role.name);
+    if (roles.includes('admin')) {
+      return this.prisma.user.findMany({
+        where: { id: { not: managerId } },
+        select: { id: true, name: true, email: true },
+        orderBy: { name: 'asc' },
+      });
+    }
+
     const relations = await this.prisma.userHierarchy.findMany({
       include: {
         employee: {

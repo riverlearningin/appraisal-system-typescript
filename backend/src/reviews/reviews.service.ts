@@ -266,7 +266,19 @@ export class ReviewsService {
     }
 
     async getReviewsForManager(managerId: number) {
-        const [hierarchy, reviews] = await Promise.all([
+        const [requester, hierarchy, reviews] = await Promise.all([
+            this.prisma.user.findUnique({
+                where: { id: managerId },
+                select: {
+                    roles: {
+                        select: {
+                            role: {
+                                select: { name: true },
+                            },
+                        },
+                    },
+                },
+            }),
             this.prisma.userHierarchy.findMany(),
             this.prisma.review.findMany({
                 select: {
@@ -276,6 +288,13 @@ export class ReviewsService {
                 },
             }),
         ]);
+
+        if (!requester) throw new NotFoundException('User not found');
+
+        const roles = requester.roles.map((r) => r.role.name);
+        if (roles.includes('admin')) {
+            return reviews;
+        }
 
         const parentMap = new Map<number, number>();
         for (const rel of hierarchy) {
@@ -755,8 +774,8 @@ export class ReviewsService {
         if (!requester) throw new NotFoundException('User not found');
 
         const roles = requester.roles.map((r) => r.role.name);
-        if (!roles.includes('management')) {
-            throw new ForbiddenException('Only management can access reports');
+        if (!roles.includes('management') && !roles.includes('admin')) {
+            throw new ForbiddenException('Only management and admin can access reports');
         }
 
         // Find active cycle

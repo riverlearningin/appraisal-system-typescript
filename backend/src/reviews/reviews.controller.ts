@@ -100,7 +100,7 @@ export class ReviewsController {
     }
 
     @UseGuards(RoleGuard)
-    @Roles('management')
+    @Roles('management', 'admin')
     @Get('report/:employeeId')
     async getReport(@Param('employeeId') employeeId: string, @Req() req) {
         const data = await this.reviewsService.getReport(Number(employeeId), req.user.userId);

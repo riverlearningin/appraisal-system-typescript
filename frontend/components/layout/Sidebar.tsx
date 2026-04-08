@@ -25,7 +25,7 @@ const NAV_ITEMS: NavItem[] = [
     {
         label: 'Print Appraisal Report',
         href: '/reports',
-        roles: ['management'],
+        roles: ['management', 'admin'],
     },
     {
         label: 'Manage Users',
