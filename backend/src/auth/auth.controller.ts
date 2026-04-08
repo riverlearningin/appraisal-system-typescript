@@ -39,7 +39,8 @@ export class AuthController {
     @Post('logout')
     logout(@Res({ passthrough: true }) res: Response) {
         const isProduction = process.env.NODE_ENV === 'production';
-        const cookieSameSite = isProduction ? 'none' : 'lax';
+        // const cookieSameSite = isProduction ? 'none' : 'lax';
+        const cookieSameSite = 'lax';
 
         res.clearCookie('access_token', {
             httpOnly: true,
