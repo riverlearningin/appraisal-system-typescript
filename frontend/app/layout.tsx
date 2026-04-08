@@ -3,6 +3,8 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthInitializer } from '@/components/auth/AuthInitializer';
 import { PoweredByBadge } from '@/components/layout/PoweredByBadge';
+import { Analytics } from "@vercel/analytics/next"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -22,6 +24,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <AuthInitializer />
             {children}
             <PoweredByBadge />
+            <Analytics />
+            <SpeedInsights />
         </body>
         </html>
     )
