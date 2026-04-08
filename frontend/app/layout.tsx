@@ -8,6 +8,11 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
     title: 'Appraisal System',
+    icons: {
+        icon: '/company-logo.png',
+        shortcut: '/company-logo.png',
+        apple: '/company-logo.png',
+    },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
