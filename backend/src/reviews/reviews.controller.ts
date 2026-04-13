@@ -125,6 +125,24 @@ export class ReviewsController {
         return new ApiResponse(true, data);
     }
 
+    @Get('report-role-summaries')
+    async getReportRoleSummaries(
+        @Query('employeeIds') employeeIds: string,
+        @Req() req,
+    ) {
+        const ids = (employeeIds ?? '')
+            .split(',')
+            .map((value) => Number(value.trim()))
+            .filter((value) => Number.isFinite(value) && value > 0);
+
+        const data = await this.reviewsService.getReportRoleSummaries(
+            ids,
+            req.user.userId,
+        );
+
+        return new ApiResponse(true, data);
+    }
+
     @Get(':id')
     async getReviewById(
         @Param('id', ParseIntPipe) id: number,

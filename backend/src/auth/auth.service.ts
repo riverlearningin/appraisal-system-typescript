@@ -19,6 +19,7 @@ export class AuthService {
         });
 
         if (!user) throw new UnauthorizedException();
+        if (user.disabled) throw new UnauthorizedException('User is disabled');
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) throw new UnauthorizedException();

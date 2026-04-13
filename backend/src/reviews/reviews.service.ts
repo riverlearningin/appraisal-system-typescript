@@ -76,6 +76,14 @@ export class ReviewsService {
     }) {
         const review = await this.prisma.review.findUnique({
             where: { id: data.reviewId },
+            select: {
+                id: true,
+                employeeId: true,
+                cycleId: true,
+                reviewerId: true,
+                reviewerRole: true,
+                status: true,
+            },
         });
 
         if (!review) throw new NotFoundException('Review not found');
@@ -87,6 +95,12 @@ export class ReviewsService {
         if (review.status === 'submitted') {
             throw new BadRequestException('Cannot edit submitted review');
         }
+
+        await this.ensureNotLockedByManagementSubmission(
+            review.id,
+            review.cycleId,
+            review.employeeId,
+        );
 
         const point = await this.prisma.point.findUnique({
             where: { id: data.pointId },
@@ -159,6 +173,12 @@ export class ReviewsService {
             throw new BadRequestException('Cannot add points to submitted review');
         }
 
+        await this.ensureNotLockedByManagementSubmission(
+            review.id,
+            review.cycleId,
+            review.employeeId,
+        );
+
         const section = await this.prisma.section.findUnique({
             where: { id: data.sectionId },
             select: {
@@ -198,6 +218,7 @@ export class ReviewsService {
                 employeeId: true,
                 cycleId: true,
                 reviewerId: true,
+                reviewerRole: true,
                 status: true,
             },
         });
@@ -211,6 +232,12 @@ export class ReviewsService {
         if (review.reviewerId !== userId) {
             throw new ForbiddenException('Only reviewer can submit');
         }
+
+        await this.ensureNotLockedByManagementSubmission(
+            review.id,
+            review.cycleId,
+            review.employeeId,
+        );
 
         const cyclePoints = await this.prisma.point.findMany({
             where: {
@@ -762,6 +789,29 @@ export class ReviewsService {
         return false;
     }
 
+    private async ensureNotLockedByManagementSubmission(
+        reviewId: number,
+        cycleId: number,
+        employeeId: number,
+    ) {
+        const submittedManagementReview = await this.prisma.review.findFirst({
+            where: {
+                cycleId,
+                employeeId,
+                reviewerRole: 'management',
+                status: 'submitted',
+                id: { not: reviewId },
+            },
+            select: { id: true },
+        });
+
+        if (submittedManagementReview) {
+            throw new ForbiddenException(
+                'This review is locked because management has already submitted the final review.',
+            );
+        }
+    }
+
     async getReport(employeeId: number, requesterId: number) {
         // Access check
         const requester = await this.prisma.user.findUnique({
@@ -964,6 +1014,166 @@ export class ReviewsService {
                 const overall = sectionAverages.reduce((sum, value) => sum + value, 0) / sectionAverages.length;
                 result[employeeId] = round(overall);
             }
+        }
+
+        return result;
+    }
+
+    async getReportRoleSummaries(employeeIds: number[], requesterId: number) {
+        const uniqueIds = Array.from(
+            new Set(employeeIds.filter((value) => Number.isInteger(value) && value > 0)),
+        );
+
+        if (uniqueIds.length === 0) {
+            return {} as Record<number, { employee: number | null; manager: number | null; management: number | null }>;
+        }
+
+        const requester = await this.prisma.user.findUnique({
+            where: { id: requesterId },
+            select: {
+                roles: { select: { role: { select: { name: true } } } },
+            },
+        });
+
+        if (!requester) throw new NotFoundException('User not found');
+
+        const roles = requester.roles.map((r) => r.role.name);
+        const isPrivileged = roles.includes('admin') || roles.includes('management');
+        const isManager = roles.includes('manager');
+
+        let allowedIds = uniqueIds;
+
+        if (!isPrivileged) {
+            if (isManager) {
+                const relations = await this.prisma.userHierarchy.findMany({
+                    where: {
+                        managerId: requesterId,
+                        employeeId: { in: uniqueIds },
+                    },
+                    select: { employeeId: true },
+                });
+
+                const directReports = new Set(relations.map((rel) => rel.employeeId));
+                allowedIds = uniqueIds.filter(
+                    (employeeId) => employeeId === requesterId || directReports.has(employeeId),
+                );
+            } else {
+                allowedIds = uniqueIds.filter((employeeId) => employeeId === requesterId);
+            }
+        }
+
+        if (allowedIds.length === 0) {
+            throw new ForbiddenException('You do not have access to these reports');
+        }
+
+        const result: Record<number, { employee: number | null; manager: number | null; management: number | null }> = {};
+        for (const employeeId of allowedIds) {
+            result[employeeId] = {
+                employee: null,
+                manager: null,
+                management: null,
+            };
+        }
+
+        const activeCycle = await this.prisma.cycle.findFirst({
+            where: { status: 'active' },
+            select: { id: true },
+        });
+
+        if (!activeCycle) {
+            return result;
+        }
+
+        const ratedSections = await this.prisma.section.findMany({
+            where: {
+                cycleId: activeCycle.id,
+                isDynamic: false,
+            },
+            select: { id: true },
+        });
+
+        const ratedSectionIds = new Set(ratedSections.map((section) => section.id));
+        if (ratedSectionIds.size === 0) {
+            return result;
+        }
+
+        const reviews = await this.prisma.review.findMany({
+            where: {
+                cycleId: activeCycle.id,
+                employeeId: { in: allowedIds },
+                reviewerRole: { in: ['employee', 'manager', 'management'] },
+            },
+            select: {
+                employeeId: true,
+                reviewerRole: true,
+                responses: {
+                    where: { rating: { not: null } },
+                    select: {
+                        rating: true,
+                        point: {
+                            select: {
+                                sectionId: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        type RoleScoreMap = Map<number, { sum: number; count: number }>;
+        const scoreMap = new Map<number, { employee: RoleScoreMap; manager: RoleScoreMap; management: RoleScoreMap }>();
+
+        for (const review of reviews) {
+            if (!scoreMap.has(review.employeeId)) {
+                scoreMap.set(review.employeeId, {
+                    employee: new Map(),
+                    manager: new Map(),
+                    management: new Map(),
+                });
+            }
+
+            const roleKey = review.reviewerRole as 'employee' | 'manager' | 'management';
+            const employeeScores = scoreMap.get(review.employeeId)!;
+            const sectionScores = employeeScores[roleKey];
+
+            for (const response of review.responses) {
+                const sectionId = response.point.sectionId;
+                if (!ratedSectionIds.has(sectionId) || response.rating == null) {
+                    continue;
+                }
+
+                const current = sectionScores.get(sectionId) ?? { sum: 0, count: 0 };
+                current.sum += response.rating;
+                current.count += 1;
+                sectionScores.set(sectionId, current);
+            }
+        }
+
+        const round = (num: number) => Math.round(num * 100) / 100;
+
+        const computeOverall = (sectionScores: RoleScoreMap): number | null => {
+            const sectionAverages = Array.from(sectionScores.values())
+                .filter((section) => section.count > 0)
+                .map((section) => round(section.sum / section.count));
+
+            if (sectionAverages.length === 0) {
+                return null;
+            }
+
+            return round(
+                sectionAverages.reduce((sum, value) => sum + value, 0) / sectionAverages.length,
+            );
+        };
+
+        for (const employeeId of allowedIds) {
+            const employeeScores = scoreMap.get(employeeId);
+            if (!employeeScores) continue;
+
+            result[employeeId] = {
+                employee: computeOverall(employeeScores.employee),
+                manager: computeOverall(employeeScores.manager),
+                management: computeOverall(employeeScores.management),
+            };
         }
 
         return result;

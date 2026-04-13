@@ -95,6 +95,21 @@ export class UsersController {
     }
 
     @Roles('management', 'admin')
+    @Patch(':id/disabled')
+    async setUserDisabled(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() body: { disabled: boolean },
+        @Req() req,
+    ) {
+        const data = await this.usersService.setUserDisabled(
+            id,
+            !!body.disabled,
+            req.user.userId,
+        );
+        return new ApiResponse(true, data, body.disabled ? 'User disabled' : 'User enabled');
+    }
+
+    @Roles('management', 'admin')
     @Delete(':id')
     async deleteUser(@Param('id', ParseIntPipe) id: number) {
         const data = await this.usersService.deleteUser(id);

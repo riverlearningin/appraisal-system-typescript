@@ -83,3 +83,19 @@ export const getReportSummaries = async (
     return res.data.data;
 };
 
+export const getReportRoleSummaries = async (
+    employeeIds: number[],
+): Promise<Record<number, { employee: number | null; manager: number | null; management: number | null }>> => {
+    if (employeeIds.length === 0) return {};
+
+    const res = await apiClient.get<
+        ApiResponse<Record<number, { employee: number | null; manager: number | null; management: number | null }>>
+    >('/reviews/report-role-summaries', {
+        params: {
+            employeeIds: employeeIds.join(','),
+        },
+    });
+
+    return res.data.data;
+};
+

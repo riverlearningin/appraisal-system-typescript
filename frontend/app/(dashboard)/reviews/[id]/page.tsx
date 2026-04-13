@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import { reviewsApi } from '@/lib/api/reviews.api';
-import { isHttpStatus } from '@/lib/api/http-error';
+import { getHttpErrorMessage, isHttpStatus } from '@/lib/api/http-error';
 import { getAllUsers } from '@/lib/api/admin.api';
 import { ReviewDetail, ReviewSectionDetail, ReviewPointDetail } from '@/types/review.types';
 
@@ -118,6 +118,21 @@ export default function ReviewDetailPage() {
 
     const handleChange = (pointId: number, field: 'rating' | 'comment', value: string | number) => {
         if (!canEdit) return;
+
+        if (field === 'rating') {
+            if (value === '') {
+                setDrafts((prev) => ({
+                    ...prev,
+                    [pointId]: { ...prev[pointId], rating: null },
+                }));
+                return;
+            }
+
+            if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 10) {
+                return;
+            }
+        }
+
         setDrafts((prev) => ({
             ...prev,
             [pointId]: { ...prev[pointId], [field]: value },
@@ -151,15 +166,15 @@ export default function ReviewDetailPage() {
             });
             setNewPointTitle('');
             await loadReview();
-        } catch {
-            setError('Failed to add dynamic point. Please try again.');
+        } catch (err) {
+            setError(getHttpErrorMessage(err, 'Failed to add dynamic point. Please try again.'));
         } finally {
             setAddingPoint(false);
         }
     };
 
-    const handleSaveDraft = async () => {
-        if (!review || !canEdit) return;
+    const handleSaveDraft = async (): Promise<boolean> => {
+        if (!review || !canEdit) return false;
         setSaving(true);
         setError(null);
         const dynamicPointIds = new Set(
@@ -169,6 +184,19 @@ export default function ReviewDetailPage() {
         );
 
         try {
+            for (const section of review.sections) {
+                if (section.isDynamic) continue;
+
+                for (const point of section.points) {
+                    const rating = drafts[point.pointId]?.rating;
+                    if (rating == null) continue;
+                    if (!Number.isInteger(rating) || rating < 1 || rating > 10) {
+                        setError('Ratings must be whole numbers between 1 and 10.');
+                        return false;
+                    }
+                }
+            }
+
             await Promise.all(
                 Object.entries(drafts).map(([pointId, val]) =>
                     reviewsApi.addResponse({
@@ -181,8 +209,10 @@ export default function ReviewDetailPage() {
             );
             setDraftSaved(true);
             setTimeout(() => setDraftSaved(false), 2000);
-        } catch {
-            setError('Failed to save draft. Please try again.');
+            return true;
+        } catch (err) {
+            setError(getHttpErrorMessage(err, 'Failed to save draft. Please try again.'));
+            return false;
         } finally {
             setSaving(false);
         }
@@ -210,14 +240,24 @@ export default function ReviewDetailPage() {
             }
         }
 
+        const confirmed = window.confirm(
+            'No changes can be made after submitting this review. Do you want to continue?',
+        );
+        if (!confirmed) {
+            return;
+        }
+
         setSubmitting(true);
         setError(null);
         try {
-            await handleSaveDraft();
+            const saved = await handleSaveDraft();
+            if (!saved) {
+                return;
+            }
             await reviewsApi.submitReview(review.reviewId);
             router.push('/reviews');
-        } catch {
-            setError('Failed to submit. Please try again.');
+        } catch (err) {
+            setError(getHttpErrorMessage(err, 'Failed to submit. Please try again.'));
         } finally {
             setSubmitting(false);
         }
@@ -313,7 +353,7 @@ export default function ReviewDetailPage() {
                                 </span>
                             )}
                             <span className="text-xs bg-gray-100 text-gray-500 px-3 py-0.5 rounded-full">
-                                {isDynamic ? 'Comments only' : 'Rated'}
+                                {isDynamic ? 'Comments only' : 'Rated (lowest to highest: 1–10)'}
                             </span>
                         </div>
                     </div>
@@ -462,15 +502,33 @@ function PointRow({
         const savedVal = point.responses[roleKey];
 
         if (isMe) {
-            const val = field === 'rating' ? draft?.rating : draft?.comment;
             if (field === 'rating') {
                 return (
                     <input
-                        type="number"
-                        min={1}
-                        max={10}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="^(10|[1-9])$"
+                        maxLength={2}
                         value={draft?.rating || ''}
-                        onChange={(e) => onChange('rating', Number(e.target.value))}
+                        onKeyDown={(e) => {
+                            if (['e', 'E', '.', '-', '+', ','].includes(e.key)) {
+                                e.preventDefault();
+                            }
+                        }}
+                        onChange={(e) => {
+                            const raw = e.target.value.trim();
+
+                            if (raw === '') {
+                                onChange('rating', '');
+                                return;
+                            }
+
+                            if (!/^(10|[1-9])$/.test(raw)) {
+                                return;
+                            }
+
+                            onChange('rating', Number(raw));
+                        }}
                         placeholder="1–10"
                         className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-cyan-400"
                     />

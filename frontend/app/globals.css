@@ -146,6 +146,14 @@
     main {
         width: 100% !important;
         padding: 0 !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    html,
+    body {
+      height: auto !important;
+      overflow: visible !important;
     }
 
     /* Page breaks between sections */

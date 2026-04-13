@@ -257,6 +257,7 @@ export class UsersService {
         id: true,
         name: true,
         email: true,
+        disabled: true,
         roles: {
           select: { role: { select: { name: true } } },
         },
@@ -277,10 +278,31 @@ export class UsersService {
       id: user.id,
       name: user.name,
       email: user.email,
+      disabled: user.disabled,
       roles: user.roles.map((r) => r.role.name),
       managerId: user.employeeRelation[0]?.managerId ?? null,
       managerName: user.employeeRelation[0]?.manager?.name ?? null,
     }));
+  }
+
+  async setUserDisabled(userId: number, disabled: boolean, actorId: number) {
+    const existing = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+
+    if (!existing) throw new NotFoundException('User not found');
+
+    if (userId === actorId && disabled) {
+      throw new BadRequestException('You cannot disable your own account');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { disabled },
+    });
+
+    return { message: disabled ? 'User disabled successfully' : 'User enabled successfully' };
   }
 
   async updateUser(

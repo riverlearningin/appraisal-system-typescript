@@ -8,7 +8,7 @@ import {
     assignRole,
     assignManager,
     updateUser,
-    deleteUser,
+    setUserDisabled,
     AdminUser, AdminRole,
 } from '@/lib/api/admin.api';
 import { PageSpinner, AdminCard, FormInput, FormSelect, FormFooter } from '../_components';
@@ -160,15 +160,17 @@ export default function AdminUsersPage() {
         }
     };
 
-    const handleDeleteUser = async (user: AdminUser) => {
-        const confirmed = window.confirm(`Delete ${user.name}? This will remove their reviews and hierarchy links.`);
+    const handleToggleUserDisabled = async (user: AdminUser) => {
+        const nextDisabled = !user.disabled;
+        const actionText = nextDisabled ? 'disable' : 'enable';
+        const confirmed = window.confirm(`Are you sure you want to ${actionText} ${user.name}?`);
         if (!confirmed) return;
 
         try {
-            await deleteUser(user.id);
+            await setUserDisabled(user.id, nextDisabled);
             await refreshUsers();
         } catch (e: unknown) {
-            setCreateMsg({ ok: false, text: getErrorMessage(e, 'Failed to delete user.') });
+            setCreateMsg({ ok: false, text: getErrorMessage(e, `Failed to ${actionText} user.`) });
         }
     };
 
@@ -277,6 +279,11 @@ export default function AdminUsersPage() {
                                         <span style={{ paddingLeft: `${row.level * 20}px` }} className="inline-flex items-center gap-2">
                                             {row.level > 0 ? <span className="text-gray-300">-</span> : null}
                                             {row.user.name}
+                                            {row.user.disabled && (
+                                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600">
+                                                    Disabled
+                                                </span>
+                                            )}
                                         </span>
                                     </td>
                                     <td className="px-4 py-3 text-gray-500">{row.user.email}</td>
@@ -294,15 +301,20 @@ export default function AdminUsersPage() {
                                         <div className="flex items-center gap-2">
                                             <button
                                                 onClick={() => openEdit(row.user)}
+                                                disabled={row.user.disabled}
                                                 className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
                                             >
                                                 Edit
                                             </button>
                                             <button
-                                                onClick={() => handleDeleteUser(row.user)}
-                                                className="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+                                                onClick={() => handleToggleUserDisabled(row.user)}
+                                                className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                                                    row.user.disabled
+                                                        ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                                                        : 'bg-red-100 text-red-700 hover:bg-red-200'
+                                                }`}
                                             >
-                                                Delete
+                                                {row.user.disabled ? 'Enable' : 'Disable'}
                                             </button>
                                         </div>
                                     </td>

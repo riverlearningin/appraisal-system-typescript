@@ -3,9 +3,15 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
-import { getReportSummaries, reviewsApi } from '@/lib/api/reviews.api';
+import { getReportRoleSummaries, reviewsApi } from '@/lib/api/reviews.api';
 import { getMyTeam, getAllMyTeam, TeamMember } from '@/lib/api/users.api';
 import { ReviewListItem } from '@/types/review.types';
+
+type RoleScoreSummary = {
+    employee: number | null;
+    manager: number | null;
+    management: number | null;
+};
 
 export default function DashboardPage() {
     const { activeRole, user, isInitialized } = useAuthStore();
@@ -13,7 +19,7 @@ export default function DashboardPage() {
 
     const [reviews, setReviews] = useState<ReviewListItem[]>([]);
     const [team, setTeam] = useState<TeamMember[]>([]);
-    const [scoreByEmployee, setScoreByEmployee] = useState<Record<number, number | null>>({});
+    const [scoreByEmployee, setScoreByEmployee] = useState<Record<number, RoleScoreSummary>>({});
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -62,7 +68,7 @@ export default function DashboardPage() {
 
             if (activeRole !== 'employee') {
                 try {
-                    const summaries = await getReportSummaries(
+                    const summaries = await getReportRoleSummaries(
                         teamMembers.map((member) => member.id),
                     );
 
@@ -71,7 +77,7 @@ export default function DashboardPage() {
                             Number(employeeId),
                             score,
                         ]),
-                    ) as Record<number, number | null>;
+                    ) as Record<number, RoleScoreSummary>;
 
                     setScoreByEmployee(normalized);
                 } catch {
@@ -127,8 +133,9 @@ export default function DashboardPage() {
             scoreByEmployee={scoreByEmployee}
             userName={user?.name ?? ''}
             isManagement={activeRole === 'management' || activeRole === 'admin'}
+            activeRole={activeRole}
             isAdmin={activeRole === 'admin'}
-            canViewReports={activeRole === 'management'}
+            canViewReports={activeRole === 'management' || activeRole === 'admin'}
             router={router}
         />
     );
@@ -219,15 +226,17 @@ function ManagerDashboard({
     scoreByEmployee,
     userName,
     isManagement,
+    activeRole,
     isAdmin,
     canViewReports,
     router,
 }: {
     reviews: ReviewListItem[];
     team: TeamMember[];
-    scoreByEmployee: Record<number, number | null>;
+    scoreByEmployee: Record<number, RoleScoreSummary>;
     userName: string;
     isManagement: boolean;
+    activeRole: 'manager' | 'management' | 'admin';
     isAdmin: boolean;
     canViewReports: boolean;
     router: ReturnType<typeof useRouter>;
@@ -248,6 +257,7 @@ function ManagerDashboard({
 
     // keep a visible count of draft status among existing review rows
     const pendingCount = pending.length;
+    const showManagementScore = activeRole === 'management';
 
     return (
         <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -390,7 +400,11 @@ function ManagerDashboard({
                         <thead>
                             <tr className="bg-gray-50 text-gray-600">
                                 <th className="text-left px-5 py-3 font-medium">Employee</th>
-                                <th className="text-left px-5 py-3 font-medium">Score</th>
+                                <th className="text-left px-5 py-3 font-medium">Employee Score</th>
+                                <th className="text-left px-5 py-3 font-medium">Manager Score</th>
+                                {showManagementScore && (
+                                    <th className="text-left px-5 py-3 font-medium">Management Score</th>
+                                )}
                                 {!isAdmin && <th className="text-left px-5 py-3 font-medium">Status</th>}
                                 {canViewReports && <th className="text-left px-5 py-3 font-medium">Action</th>}
                             </tr>
@@ -398,7 +412,11 @@ function ManagerDashboard({
                         <tbody>
                             {team.map((member, i) => {
                                 const r = reviewByEmployee.get(member.id);
-                                const score = scoreByEmployee[member.id] ?? null;
+                                const score = scoreByEmployee[member.id] ?? {
+                                    employee: null,
+                                    manager: null,
+                                    management: null,
+                                };
                                 return (
                                     <tr
                                         key={member.id}
@@ -408,12 +426,28 @@ function ManagerDashboard({
                                             {member.name}
                                         </td>
                                         <td className="px-5 py-3">
-                                            {score != null ? (
-                                                <ScorePill score={score} />
+                                            {score.employee != null ? (
+                                                <ScorePill score={score.employee} />
                                             ) : (
                                                 <span className="text-gray-400">—</span>
                                             )}
                                         </td>
+                                        <td className="px-5 py-3">
+                                            {score.manager != null ? (
+                                                <ScorePill score={score.manager} />
+                                            ) : (
+                                                <span className="text-gray-400">—</span>
+                                            )}
+                                        </td>
+                                        {showManagementScore && (
+                                            <td className="px-5 py-3">
+                                                {score.management != null ? (
+                                                    <ScorePill score={score.management} />
+                                                ) : (
+                                                    <span className="text-gray-400">—</span>
+                                                )}
+                                            </td>
+                                        )}
                                         {!isAdmin && (
                                             <td className="px-5 py-3">
                                                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${

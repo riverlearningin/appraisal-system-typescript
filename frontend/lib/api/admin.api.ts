@@ -7,6 +7,7 @@ export interface AdminUser {
     id: number;
     name: string;
     email: string;
+    disabled: boolean;
     roles: string[];
     managerId: number | null;
     managerName: string | null;
@@ -67,6 +68,10 @@ export const updateUser = async (
     data: { name: string; email: string; roleNames: string[] },
 ): Promise<void> => {
     await api.patch(`/users/${id}`, data);
+};
+
+export const setUserDisabled = async (id: number, disabled: boolean): Promise<void> => {
+    await api.patch(`/users/${id}/disabled`, { disabled });
 };
 
 export const deleteUser = async (id: number): Promise<void> => {
