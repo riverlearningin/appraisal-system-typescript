@@ -55,7 +55,11 @@ export default function ReviewDetailPage() {
     const showManagementColumn = review?.responseVisibility.showManagementResponses ?? true;
     const hidePeerRatingsForEmployee = activeRole === 'employee';
     const showManagerRatingColumn = showManagerColumn && !hidePeerRatingsForEmployee;
-    const showManagementRatingColumn = showManagementColumn && !hidePeerRatingsForEmployee;
+    const showManagementRatingColumn =
+        showManagementColumn &&
+        !hidePeerRatingsForEmployee &&
+        activeRole !== 'manager';
+    const showSectionAverage = activeRole === 'management' || activeRole === 'admin';
 
     useEffect(() => {
         if (!isInitialized || activeRole !== 'management') return;
@@ -363,7 +367,7 @@ export default function ReviewDetailPage() {
                             </span>
                         </div>
                     </div>
-                    {activeSection.sectionAverage !== null && (
+                    {showSectionAverage && activeSection.sectionAverage !== null && (
                         <span className="text-sm text-gray-500">
                             Section avg:{' '}
                             <span className="font-semibold text-[#0d3d5e]">

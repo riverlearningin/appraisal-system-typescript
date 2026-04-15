@@ -950,8 +950,17 @@ export class ReviewsService {
             select: { id: true },
         });
 
+        const allSections = await this.prisma.section.findMany({
+            where: {
+                cycleId: activeCycle.id,
+            },
+            select: { id: true },
+        });
+
         const ratedSectionIds = new Set(ratedSections.map((section) => section.id));
-        if (ratedSectionIds.size === 0) {
+        const allSectionIds = new Set(allSections.map((section) => section.id));
+
+        if (ratedSectionIds.size === 0 && allSectionIds.size === 0) {
             return result;
         }
 
@@ -1120,8 +1129,9 @@ export class ReviewsService {
             },
         });
 
-        type RoleScoreMap = Map<number, { sum: number; count: number }>;
-        const scoreMap = new Map<number, { employee: RoleScoreMap; manager: RoleScoreMap; management: RoleScoreMap }>();
+        type SectionScoreMap = Map<number, { sum: number; count: number }>;
+        const scoreMap = new Map<number, { employee: SectionScoreMap; manager: SectionScoreMap; management: SectionScoreMap }>();
+        const managementPointTotals = new Map<number, { sum: number; count: number }>();
 
         for (const review of reviews) {
             if (!scoreMap.has(review.employeeId)) {
@@ -1138,7 +1148,12 @@ export class ReviewsService {
 
             for (const response of review.responses) {
                 const sectionId = response.point.sectionId;
-                if (!ratedSectionIds.has(sectionId) || response.rating == null) {
+                const canCountForRole =
+                    roleKey === 'management'
+                        ? allSectionIds.has(sectionId)
+                        : ratedSectionIds.has(sectionId);
+
+                if (!canCountForRole || response.rating == null) {
                     continue;
                 }
 
@@ -1146,12 +1161,19 @@ export class ReviewsService {
                 current.sum += response.rating;
                 current.count += 1;
                 sectionScores.set(sectionId, current);
+
+                if (roleKey === 'management') {
+                    const totals = managementPointTotals.get(review.employeeId) ?? { sum: 0, count: 0 };
+                    totals.sum += response.rating;
+                    totals.count += 1;
+                    managementPointTotals.set(review.employeeId, totals);
+                }
             }
         }
 
         const round = (num: number) => Math.round(num * 100) / 100;
 
-        const computeOverall = (sectionScores: RoleScoreMap): number | null => {
+        const computeOverall = (sectionScores: SectionScoreMap): number | null => {
             const sectionAverages = Array.from(sectionScores.values())
                 .filter((section) => section.count > 0)
                 .map((section) => round(section.sum / section.count));
@@ -1169,10 +1191,16 @@ export class ReviewsService {
             const employeeScores = scoreMap.get(employeeId);
             if (!employeeScores) continue;
 
+            const managementTotals = managementPointTotals.get(employeeId);
+            const managementOverall =
+                managementTotals && managementTotals.count > 0
+                    ? round(managementTotals.sum / managementTotals.count)
+                    : null;
+
             result[employeeId] = {
                 employee: computeOverall(employeeScores.employee),
                 manager: computeOverall(employeeScores.manager),
-                management: computeOverall(employeeScores.management),
+                management: managementOverall,
             };
         }
 
