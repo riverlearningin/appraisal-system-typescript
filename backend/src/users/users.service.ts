@@ -288,13 +288,27 @@ export class UsersService {
   async setUserDisabled(userId: number, disabled: boolean, actorId: number) {
     const existing = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true },
+      select: {
+        id: true,
+        roles: {
+          select: {
+            role: {
+              select: { name: true },
+            },
+          },
+        },
+      },
     });
 
     if (!existing) throw new NotFoundException('User not found');
 
     if (userId === actorId && disabled) {
       throw new BadRequestException('You cannot disable your own account');
+    }
+
+    const targetRoles = existing.roles.map((r) => r.role.name);
+    if (disabled && targetRoles.includes('admin')) {
+      throw new BadRequestException('Admin users cannot be disabled');
     }
 
     await this.prisma.user.update({
