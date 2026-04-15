@@ -161,6 +161,11 @@ export default function AdminUsersPage() {
     };
 
     const handleToggleUserDisabled = async (user: AdminUser) => {
+        if (user.roles.includes('admin')) {
+            setCreateMsg({ ok: false, text: 'Admin users cannot be disabled.' });
+            return;
+        }
+
         const nextDisabled = !user.disabled;
         const actionText = nextDisabled ? 'disable' : 'enable';
         const confirmed = window.confirm(`Are you sure you want to ${actionText} ${user.name}?`);
@@ -308,13 +313,20 @@ export default function AdminUsersPage() {
                                             </button>
                                             <button
                                                 onClick={() => handleToggleUserDisabled(row.user)}
+                                                disabled={row.user.roles.includes('admin')}
                                                 className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                                                    row.user.disabled
+                                                    row.user.roles.includes('admin')
+                                                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                        : row.user.disabled
                                                         ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                                                         : 'bg-red-100 text-red-700 hover:bg-red-200'
                                                 }`}
                                             >
-                                                {row.user.disabled ? 'Enable' : 'Disable'}
+                                                {row.user.roles.includes('admin')
+                                                    ? 'Admin'
+                                                    : row.user.disabled
+                                                    ? 'Enable'
+                                                    : 'Disable'}
                                             </button>
                                         </div>
                                     </td>

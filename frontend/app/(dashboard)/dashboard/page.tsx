@@ -136,6 +136,7 @@ export default function DashboardPage() {
             activeRole={activeRole}
             isAdmin={activeRole === 'admin'}
             canViewReports={activeRole === 'management' || activeRole === 'admin'}
+            canPrintScores={activeRole === 'management'}
             router={router}
         />
     );
@@ -229,6 +230,7 @@ function ManagerDashboard({
     activeRole,
     isAdmin,
     canViewReports,
+    canPrintScores,
     router,
 }: {
     reviews: ReviewListItem[];
@@ -239,6 +241,7 @@ function ManagerDashboard({
     activeRole: 'manager' | 'management' | 'admin';
     isAdmin: boolean;
     canViewReports: boolean;
+    canPrintScores: boolean;
     router: ReturnType<typeof useRouter>;
 }) {
     // Map employeeId → review
@@ -257,12 +260,17 @@ function ManagerDashboard({
 
     // keep a visible count of draft status among existing review rows
     const pendingCount = pending.length;
-    const showManagementScore = activeRole === 'management';
+    const isManagementDashboard = activeRole === 'management';
+    const isAdminDashboard = activeRole === 'admin';
+
+    const handlePrintScores = () => {
+        window.print();
+    };
 
     return (
-        <div className="p-6 max-w-5xl mx-auto space-y-6">
+        <div className={`p-6 max-w-5xl mx-auto space-y-6 ${isManagementDashboard ? 'management-print-mode' : ''}`}>
             {/* Greeting */}
-            <div>
+            <div className="scores-print-hide">
                 <h1 className="text-2xl font-semibold text-[#0d3d5e]">
                     Welcome, {userName.split(' ')[0]} 👋
                 </h1>
@@ -277,7 +285,7 @@ function ManagerDashboard({
 
             {/* Stat cards */}
             {!isAdmin && (
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 scores-print-hide">
                     <StatCard
                         label="Total Reviews"
                         value={total}
@@ -307,7 +315,7 @@ function ManagerDashboard({
 
             {/* Progress bar */}
             {!isAdmin && (
-                <div className="bg-white border border-gray-200 rounded-xl p-5">
+                <div className="bg-white border border-gray-200 rounded-xl p-5 scores-print-hide">
                     <div className="flex justify-between text-sm mb-2">
                         <span className="font-medium text-gray-700">Overall Progress</span>
                         <span className="text-gray-500">{submitted} / {total}</span>
@@ -323,7 +331,7 @@ function ManagerDashboard({
 
             {/* Pending reviews table */}
             {!isAdmin && (
-                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden scores-print-hide">
                     <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                         <h2 className="font-semibold text-[#0d3d5e]">Pending Reviews</h2>
                         <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
@@ -387,9 +395,17 @@ function ManagerDashboard({
             )}
 
             {/* Individual scores table */}
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100">
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden scores-print-only">
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
                     <h2 className="font-semibold text-[#0d3d5e]">Individual Scores</h2>
+                    {canPrintScores && (
+                        <button
+                            onClick={handlePrintScores}
+                            className="px-3 py-1.5 rounded-full bg-[#0d3d5e] text-white text-xs font-semibold hover:bg-[#0a2e47] transition-colors print:hidden"
+                        >
+                            Save PDF
+                        </button>
+                    )}
                 </div>
                 {team.length === 0 ? (
                     <div className="flex items-center justify-center h-24 text-gray-400 text-sm">
@@ -400,10 +416,19 @@ function ManagerDashboard({
                         <thead>
                             <tr className="bg-gray-50 text-gray-600">
                                 <th className="text-left px-5 py-3 font-medium">Employee</th>
-                                <th className="text-left px-5 py-3 font-medium">Employee Score</th>
-                                <th className="text-left px-5 py-3 font-medium">Manager Score</th>
-                                {showManagementScore && (
-                                    <th className="text-left px-5 py-3 font-medium">Management Score</th>
+                                {isManagementDashboard ? (
+                                    <th className="text-left px-5 py-3 font-medium">Average Score</th>
+                                ) : isAdminDashboard ? (
+                                    <>
+                                        <th className="text-left px-5 py-3 font-medium">Employee Score</th>
+                                        <th className="text-left px-5 py-3 font-medium">Manager Score</th>
+                                        <th className="text-left px-5 py-3 font-medium">Management Score</th>
+                                    </>
+                                ) : (
+                                    <>
+                                        <th className="text-left px-5 py-3 font-medium">Employee Score</th>
+                                        <th className="text-left px-5 py-3 font-medium">Manager Score</th>
+                                    </>
                                 )}
                                 {!isAdmin && <th className="text-left px-5 py-3 font-medium">Status</th>}
                                 {canViewReports && <th className="text-left px-5 py-3 font-medium">Action</th>}
@@ -425,21 +450,7 @@ function ManagerDashboard({
                                         <td className="px-5 py-3 font-medium text-gray-800">
                                             {member.name}
                                         </td>
-                                        <td className="px-5 py-3">
-                                            {score.employee != null ? (
-                                                <ScorePill score={score.employee} />
-                                            ) : (
-                                                <span className="text-gray-400">—</span>
-                                            )}
-                                        </td>
-                                        <td className="px-5 py-3">
-                                            {score.manager != null ? (
-                                                <ScorePill score={score.manager} />
-                                            ) : (
-                                                <span className="text-gray-400">—</span>
-                                            )}
-                                        </td>
-                                        {showManagementScore && (
+                                        {isManagementDashboard ? (
                                             <td className="px-5 py-3">
                                                 {score.management != null ? (
                                                     <ScorePill score={score.management} />
@@ -447,6 +458,47 @@ function ManagerDashboard({
                                                     <span className="text-gray-400">—</span>
                                                 )}
                                             </td>
+                                        ) : isAdminDashboard ? (
+                                            <>
+                                                <td className="px-5 py-3">
+                                                    {score.employee != null ? (
+                                                        <ScorePill score={score.employee} />
+                                                    ) : (
+                                                        <span className="text-gray-400">—</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-5 py-3">
+                                                    {score.manager != null ? (
+                                                        <ScorePill score={score.manager} />
+                                                    ) : (
+                                                        <span className="text-gray-400">—</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-5 py-3">
+                                                    {score.management != null ? (
+                                                        <ScorePill score={score.management} />
+                                                    ) : (
+                                                        <span className="text-gray-400">—</span>
+                                                    )}
+                                                </td>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <td className="px-5 py-3">
+                                                    {score.employee != null ? (
+                                                        <ScorePill score={score.employee} />
+                                                    ) : (
+                                                        <span className="text-gray-400">—</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-5 py-3">
+                                                    {score.manager != null ? (
+                                                        <ScorePill score={score.manager} />
+                                                    ) : (
+                                                        <span className="text-gray-400">—</span>
+                                                    )}
+                                                </td>
+                                            </>
                                         )}
                                         {!isAdmin && (
                                             <td className="px-5 py-3">

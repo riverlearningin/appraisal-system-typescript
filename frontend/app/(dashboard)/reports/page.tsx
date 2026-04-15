@@ -6,7 +6,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { getReport } from '@/lib/api/reviews.api';
 import { isHttpStatus } from '@/lib/api/http-error';
 import { getAllUsers } from '@/lib/api/admin.api';
-import { getMyTeam, getAllMyTeam, TeamMember } from '@/lib/api/users.api';
+import { getAllMyTeam, TeamMember } from '@/lib/api/users.api';
 import { ReportDetail, ReportSectionDetail, ReportPointDetail } from '@/types/review.types';
 
 export default function ReportsPage() {
@@ -25,8 +25,7 @@ export default function ReportsPage() {
     const [teamLoading, setTeamLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const isManager = activeRole === 'manager' || activeRole === 'management' || activeRole === 'admin';
-    const isEmployee = activeRole === 'employee';
+    const canAccessReports = activeRole === 'management' || activeRole === 'admin';
 
     const formatLabel = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
@@ -71,15 +70,23 @@ export default function ReportsPage() {
         }
     }, [pathname, router]);
 
-    // Load team for manager/management
     useEffect(() => {
-        if (!isInitialized || !isManager || !user) return;
+        if (!isInitialized || !activeRole) return;
+        if (canAccessReports) return;
+
+        const params = new URLSearchParams();
+        params.set('from', pathname);
+        router.replace(`/access-denied?${params.toString()}`);
+    }, [isInitialized, activeRole, canAccessReports, pathname, router]);
+
+    // Load all employees visible to management/admin
+    useEffect(() => {
+        if (!isInitialized || !canAccessReports || !user) return;
         setTeamLoading(true);
-        const fn = activeRole === 'manager' ? getMyTeam : getAllMyTeam;
-        fn()
+        getAllMyTeam()
             .then(setTeam)
             .finally(() => setTeamLoading(false));
-    }, [isInitialized, activeRole, isManager, user?.userId]);
+    }, [isInitialized, canAccessReports, user?.userId]);
 
     useEffect(() => {
         if (!isInitialized || (activeRole !== 'management' && activeRole !== 'admin')) return;
@@ -95,26 +102,6 @@ export default function ReportsPage() {
             .catch(() => setUserRolesById({}));
     }, [isInitialized, activeRole]);
 
-    // Auto-load own report for employee
-    useEffect(() => {
-        if (!isInitialized || activeRole !== 'employee' || !user) return;
-
-        const rawEmployeeId = searchParams.get('employeeId');
-        if (rawEmployeeId) {
-            const requested = Number(rawEmployeeId);
-            if (!Number.isFinite(requested) || requested !== user.userId) {
-                const params = new URLSearchParams();
-                params.set('from', pathname);
-                router.replace(`/access-denied?${params.toString()}`);
-                return;
-            }
-        }
-
-        if (isInitialized && activeRole === 'employee' && user) {
-            loadReport(user.userId);
-        }
-    }, [isInitialized, activeRole, user?.userId, searchParams, pathname, router, loadReport]);
-
     const handleEmployeeSelect = (id: number) => {
         setSelectedEmployeeId(id);
 
@@ -126,7 +113,7 @@ export default function ReportsPage() {
     };
 
     useEffect(() => {
-        if (!isManager || teamLoading || team.length === 0) return;
+        if (!canAccessReports || teamLoading || team.length === 0) return;
 
         const rawEmployeeId = searchParams.get('employeeId');
         if (!rawEmployeeId) return;
@@ -141,7 +128,7 @@ export default function ReportsPage() {
 
         setSelectedEmployeeId(employeeId);
         loadReport(employeeId);
-    }, [isManager, teamLoading, team, searchParams, loadReport, pathname, router]);
+    }, [canAccessReports, teamLoading, team, searchParams, loadReport, pathname, router]);
 
     const handlePrint = () => {
         window.print();
@@ -170,8 +157,8 @@ export default function ReportsPage() {
                 )}
             </div>
 
-            {/* Employee picker for manager/management */}
-            {isManager && (
+            {/* Employee picker for management/admin */}
+            {canAccessReports && (
                 <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 print:hidden">
                     <label className="text-sm font-medium text-gray-600 whitespace-nowrap">
                         Select Employee
@@ -210,7 +197,7 @@ export default function ReportsPage() {
             {/* Empty state */}
             {!loading && !error && !report && (
                 <div className="flex items-center justify-center h-48 bg-white border border-dashed border-gray-300 rounded-xl text-gray-400 text-sm">
-                    {isManager ? 'Select an employee to view their report.' : 'No report available.'}
+                    Select an employee to view their report.
                 </div>
             )}
 
@@ -224,6 +211,9 @@ export default function ReportsPage() {
                             subjectRole !== 'Management' &&
                             report.responseVisibility.showManagerResponses;
                         const showManagementColumn = report.responseVisibility.showManagementResponses;
+                        const showManagerRatingColumn = showManagerColumn;
+                        const showManagementRatingColumn = showManagementColumn;
+                        const managementOverallScore = getRoleOverallScore(report.sections, 'management');
 
                         return (
                             <>
@@ -253,6 +243,20 @@ export default function ReportsPage() {
                                     {subjectRole}
                                 </span>
                             </div>
+                            <div className="text-center">
+                                <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Average Score</p>
+                                <span className={`inline-flex mt-2 px-2 py-0.5 rounded-full font-semibold ${
+                                    managementOverallScore == null
+                                        ? 'bg-gray-100 text-gray-500'
+                                        : managementOverallScore >= 8
+                                        ? 'bg-green-100 text-green-700'
+                                        : managementOverallScore >= 5
+                                        ? 'bg-amber-100 text-amber-700'
+                                        : 'bg-red-100 text-red-700'
+                                }`}>
+                                    {managementOverallScore != null ? managementOverallScore.toFixed(1) : '—'}
+                                </span>
+                            </div>
                         </div>
                     </div>
 
@@ -279,6 +283,8 @@ export default function ReportsPage() {
                             section={report.sections[activeSectionIdx]}
                             showManagerColumn={showManagerColumn}
                             showManagementColumn={showManagementColumn}
+                            showManagerRatingColumn={showManagerRatingColumn}
+                            showManagementRatingColumn={showManagementRatingColumn}
                         />
                     </div>
 
@@ -290,6 +296,8 @@ export default function ReportsPage() {
                                 section={section}
                                 showManagerColumn={showManagerColumn}
                                 showManagementColumn={showManagementColumn}
+                                showManagerRatingColumn={showManagerRatingColumn}
+                                showManagementRatingColumn={showManagementRatingColumn}
                             />
                         ))}
                     </div>
@@ -308,15 +316,19 @@ function SectionReport({
     section,
     showManagerColumn,
     showManagementColumn,
+    showManagerRatingColumn,
+    showManagementRatingColumn,
 }: {
     section: ReportSectionDetail;
     showManagerColumn: boolean;
     showManagementColumn: boolean;
+    showManagerRatingColumn: boolean;
+    showManagementRatingColumn: boolean;
 }) {
     const isDynamic = section.isDynamic;
 
     return (
-        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden print:overflow-visible">
 
             {/* Section header */}
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-3">
@@ -329,10 +341,10 @@ function SectionReport({
                 {!isDynamic && (
                     <div className="flex items-center gap-4 text-xs text-gray-500">
                         <AverageChip label="Self" value={section.sectionAverage.employee} />
-                        {showManagerColumn && (
+                        {showManagerRatingColumn && (
                             <AverageChip label="Manager" value={section.sectionAverage.manager} />
                         )}
-                        {showManagementColumn && (
+                        {showManagementRatingColumn && (
                             <AverageChip label="Management" value={section.sectionAverage.management} />
                         )}
                     </div>
@@ -385,6 +397,8 @@ function SectionReport({
                                 isDynamic={isDynamic}
                                 showManagerColumn={showManagerColumn}
                                 showManagementColumn={showManagementColumn}
+                                showManagerRatingColumn={showManagerRatingColumn}
+                                showManagementRatingColumn={showManagementRatingColumn}
                                 striped={i % 2 !== 0}
                             />
                         ))}
@@ -402,12 +416,16 @@ function ReportPointRow({
     isDynamic,
     showManagerColumn,
     showManagementColumn,
+    showManagerRatingColumn,
+    showManagementRatingColumn,
     striped,
 }: {
     point: ReportPointDetail;
     isDynamic: boolean;
     showManagerColumn: boolean;
     showManagementColumn: boolean;
+    showManagerRatingColumn: boolean;
+    showManagementRatingColumn: boolean;
     striped: boolean;
 }) {
     const bg = striped ? 'bg-gray-50' : 'bg-white';
@@ -444,9 +462,9 @@ function ReportPointRow({
             </td>
             {!isDynamic && <RatingCell val={self?.rating} />}
             <CommentCell val={self?.comment} />
-            {!isDynamic && showManagerColumn && <RatingCell val={manager?.rating} />}
+            {!isDynamic && showManagerRatingColumn && <RatingCell val={manager?.rating} />}
             {showManagerColumn && <CommentCell val={manager?.comment} />}
-            {!isDynamic && showManagementColumn && <RatingCell val={management?.rating} />}
+            {!isDynamic && showManagementRatingColumn && <RatingCell val={management?.rating} />}
             {showManagementColumn && <CommentCell val={management?.comment} />}
         </tr>
     );
@@ -468,4 +486,20 @@ function AverageChip({ label, value }: { label: string; value: number | null }) 
             </span>
         </span>
     );
+}
+
+function getRoleOverallScore(
+    sections: ReportSectionDetail[],
+    role: 'employee' | 'manager' | 'management',
+): number | null {
+    const values = sections
+        .map((section) => section.sectionAverage[role])
+        .filter((value): value is number => value != null);
+
+    if (values.length === 0) {
+        return null;
+    }
+
+    const avg = values.reduce((sum, value) => sum + value, 0) / values.length;
+    return Math.round(avg * 10) / 10;
 }

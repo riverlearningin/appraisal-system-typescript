@@ -53,6 +53,9 @@ export default function ReviewDetailPage() {
         !(isManagerSelfReview || isManagementReviewingManager) &&
         (review?.responseVisibility.showManagerResponses ?? true);
     const showManagementColumn = review?.responseVisibility.showManagementResponses ?? true;
+    const hidePeerRatingsForEmployee = activeRole === 'employee';
+    const showManagerRatingColumn = showManagerColumn && !hidePeerRatingsForEmployee;
+    const showManagementRatingColumn = showManagementColumn && !hidePeerRatingsForEmployee;
 
     useEffect(() => {
         if (!isInitialized || activeRole !== 'management') return;
@@ -202,7 +205,10 @@ export default function ReviewDetailPage() {
                     reviewsApi.addResponse({
                         reviewId: review.reviewId,
                         pointId: Number(pointId),
-                        rating: dynamicPointIds.has(Number(pointId)) ? null : val.rating,
+                        rating:
+                            dynamicPointIds.has(Number(pointId)) && review.reviewerRole !== 'management'
+                                ? null
+                                : val.rating,
                         comment: val.comment,
                     })
                 )
@@ -404,7 +410,7 @@ export default function ReviewDetailPage() {
                                 <th className="px-4 py-3 font-medium border border-[#0a2e47] text-center">
                                     Self Comment
                                 </th>
-                                {!isDynamic && showManagerColumn && (
+                                {!isDynamic && showManagerRatingColumn && (
                                     <th className="px-4 py-3 font-medium border border-[#0a2e47] text-center">
                                         Manager Rating
                                     </th>
@@ -414,7 +420,7 @@ export default function ReviewDetailPage() {
                                         Manager Comment
                                     </th>
                                 )}
-                                {!isDynamic && showManagementColumn && (
+                                {showManagementRatingColumn && (!isDynamic || review.reviewerRole === 'management') && (
                                     <th className="px-4 py-3 font-medium border border-[#0a2e47] text-center">
                                         Management Rating
                                     </th>
@@ -438,6 +444,9 @@ export default function ReviewDetailPage() {
                                     striped={i % 2 !== 0}
                                     showManagerColumn={showManagerColumn}
                                     showManagementColumn={showManagementColumn}
+                                    showManagerRatingColumn={showManagerRatingColumn}
+                                    showManagementRatingColumn={showManagementRatingColumn}
+                                    allowDynamicManagementRating={review.reviewerRole === 'management'}
                                     onChange={(field, val) => handleChange(point.pointId, field, val)}
                                 />
                             ))}
@@ -481,6 +490,9 @@ interface PointRowProps {
     striped: boolean;
     showManagerColumn: boolean;
     showManagementColumn: boolean;
+    showManagerRatingColumn: boolean;
+    showManagementRatingColumn: boolean;
+    allowDynamicManagementRating: boolean;
     onChange: (field: 'rating' | 'comment', value: string | number) => void;
 }
 
@@ -493,6 +505,9 @@ function PointRow({
     striped,
     showManagerColumn,
     showManagementColumn,
+    showManagerRatingColumn,
+    showManagementRatingColumn,
+    allowDynamicManagementRating,
     onChange,
 }: PointRowProps) {
     const bg = striped ? 'bg-gray-50' : 'bg-white';
@@ -573,7 +588,7 @@ function PointRow({
             </td>
 
             {/* Manager */}
-            {!isDynamic && showManagerColumn && (
+            {!isDynamic && showManagerRatingColumn && (
                 <td className="px-3 py-2 border border-gray-200 align-top min-w-25 text-center">
                     {renderCell('manager', 'rating')}
                 </td>
@@ -585,7 +600,7 @@ function PointRow({
             )}
 
             {/* Management */}
-            {!isDynamic && showManagementColumn && (
+            {showManagementRatingColumn && (!isDynamic || allowDynamicManagementRating) && (
                 <td className="px-3 py-2 border border-gray-200 align-top min-w-25 text-center">
                     {renderCell('management', 'rating')}
                 </td>

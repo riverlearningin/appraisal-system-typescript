@@ -156,6 +156,20 @@
       overflow: visible !important;
     }
 
+    .h-screen,
+    .max-h-screen,
+    .min-h-screen {
+      height: auto !important;
+      max-height: none !important;
+      min-height: 0 !important;
+    }
+
+    .overflow-hidden,
+    .overflow-y-auto,
+    .overflow-auto {
+      overflow: visible !important;
+    }
+
     /* Page breaks between sections */
     .print\:break-before {
         break-before: page;
@@ -181,5 +195,18 @@
 
     .overflow-x-auto {
       overflow: visible !important;
+    }
+
+    .management-print-mode .scores-print-hide {
+      display: none !important;
+    }
+
+    .management-print-mode .scores-print-only {
+      border: none !important;
+      box-shadow: none !important;
+    }
+
+    .management-print-mode .scores-print-only thead {
+      display: table-header-group;
     }
 }
