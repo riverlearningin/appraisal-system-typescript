@@ -1101,8 +1101,17 @@ export class ReviewsService {
             select: { id: true },
         });
 
+        const allSections = await this.prisma.section.findMany({
+            where: {
+                cycleId: activeCycle.id,
+            },
+            select: { id: true },
+        });
+
         const ratedSectionIds = new Set(ratedSections.map((section) => section.id));
-        if (ratedSectionIds.size === 0) {
+        const allSectionIds = new Set(allSections.map((section) => section.id));
+
+        if (ratedSectionIds.size === 0 && allSectionIds.size === 0) {
             return result;
         }
 
