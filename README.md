@@ -1,4 +1,4 @@
-# Brodersen Appraisal System
+# Appraisal System
 
 Comprehensive technical documentation for the full-stack appraisal platform.
 
