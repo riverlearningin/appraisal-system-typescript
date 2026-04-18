@@ -161,7 +161,7 @@ function EmployeeDashboard({
             {/* Greeting */}
             <div>
                 <h1 className="text-2xl font-semibold text-[#0d3d5e]">
-                    Welcome, {userName.split(' ')[0]} 👋
+                    Welcome, {userName} 👋
                 </h1>
                 <p className="text-sm text-gray-500 mt-1">
                     Here's your appraisal overview for the current cycle.
@@ -272,7 +272,7 @@ function ManagerDashboard({
             {/* Greeting */}
             <div className="scores-print-hide">
                 <h1 className="text-2xl font-semibold text-[#0d3d5e]">
-                    Welcome, {userName.split(' ')[0]} 👋
+                    Welcome, {userName} 👋
                 </h1>
                 <p className="text-sm text-gray-500 mt-1">
                     {isAdmin

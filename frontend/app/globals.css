@@ -135,6 +135,10 @@
     margin: 10mm;
   }
 
+    .powered-by-badge {
+      display: none !important;
+    }
+
     /* Hide sidebar, header, nav */
     aside,
     header,

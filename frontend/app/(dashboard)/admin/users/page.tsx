@@ -184,7 +184,7 @@ export default function AdminUsersPage() {
     const rows = buildHierarchyRows(users);
 
     return (
-        <div className="p-6 max-w-5xl mx-auto space-y-6">
+        <div className="p-6 max-w-7xl mx-auto space-y-6">
             <h1 className="text-2xl font-semibold text-[#0d3d5e]">Manage Users</h1>
 
             {/* Tabs */}

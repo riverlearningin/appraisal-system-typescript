@@ -403,19 +403,22 @@ export class ReviewsService {
                     status: 'draft',
                 });
                 }
-            }
 
-            const managementId = managerId ? managerMap.get(managerId) : undefined;
-            if (managementId) {
-                const managementReviewerRole = getReviewerRole(managementId);
-                if (managementReviewerRole) {
-                reviewsToCreate.push({
-                    cycleId,
-                    employeeId: user.id,
-                    reviewerId: managementId,
-                    reviewerRole: managementReviewerRole,
-                    status: 'draft',
-                });
+                // If direct manager is already management-level, stop here.
+                if (managerReviewerRole !== 'management') {
+                    const managementId = managerMap.get(managerId);
+                    if (managementId) {
+                        const managementReviewerRole = getReviewerRole(managementId);
+                        if (managementReviewerRole) {
+                        reviewsToCreate.push({
+                            cycleId,
+                            employeeId: user.id,
+                            reviewerId: managementId,
+                            reviewerRole: managementReviewerRole,
+                            status: 'draft',
+                        });
+                        }
+                    }
                 }
             }
         }
@@ -651,11 +654,15 @@ export class ReviewsService {
         viewer: { requesterId: number },
     ) {
         const round = (num: number) => Math.round(num * 100) / 100;
+        const hasManagerReview = siblingReviews.some(
+            (sibling) => sibling.reviewerRole === 'manager',
+        );
         const responseVisibility = this.resolveResponseVisibility(
             review.employeeId,
             viewer.requesterId,
             review.cycle?.showManagerResponses ?? true,
             review.cycle?.showManagementResponses ?? true,
+            hasManagerReview,
         );
         const canViewRole = (role: 'employee' | 'manager' | 'management') => {
             if (role === 'employee') return true;
@@ -1224,11 +1231,15 @@ export class ReviewsService {
         viewer: { requesterId: number },
     ) {
         const round = (num: number) => Math.round(num * 100) / 100;
+        const hasManagerReview = reviews.some(
+            (review) => review.reviewerRole === 'manager',
+        );
         const responseVisibility = this.resolveResponseVisibility(
             employee.id,
             viewer.requesterId,
             cycle?.showManagerResponses ?? true,
             cycle?.showManagementResponses ?? true,
+            hasManagerReview,
         );
         const canViewRole = (role: 'employee' | 'manager' | 'management') => {
             if (role === 'employee') return true;
@@ -1343,11 +1354,12 @@ export class ReviewsService {
         requesterId: number,
         showManagerResponses: boolean,
         showManagementResponses: boolean,
+        hasManagerReview: boolean,
     ) {
         const isSelfView = employeeId === requesterId;
 
         return {
-            showManagerResponses: !isSelfView || showManagerResponses,
+            showManagerResponses: hasManagerReview && (!isSelfView || showManagerResponses),
             showManagementResponses: !isSelfView || showManagementResponses,
         };
     }
