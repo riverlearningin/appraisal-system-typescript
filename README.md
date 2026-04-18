@@ -1,10 +1,10 @@
-# Brodersen Appraisal System
+# Appraisal System
 
 Comprehensive technical documentation for the full-stack appraisal platform.
 
 ## 1. Project Overview
 
-Brodersen Appraisal System is a role-aware performance appraisal platform with:
+Appraisal System is a role-aware performance appraisal platform with:
 
 - Multi-level review workflows (self, manager, management)
 - Cycle-based appraisal windows
