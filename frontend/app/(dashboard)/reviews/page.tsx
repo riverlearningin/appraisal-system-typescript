@@ -8,6 +8,9 @@ import { getAllUsers } from '@/lib/api/admin.api';
 import { getMyTeam, getAllMyTeam, TeamMember } from '@/lib/api/users.api';
 import { ReviewListItem } from '@/types/review.types';
 
+const sortTeamByName = (members: TeamMember[]) =>
+    [...members].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
 export default function ReviewsPage() {
     const router = useRouter();
     const { activeRole, user, isInitialized } = useAuthStore();
@@ -55,10 +58,10 @@ export default function ReviewsPage() {
             setReviews(filtered);
 
             if (activeRole === 'manager') {
-                setTeam(await getMyTeam() ?? []);
+                setTeam(sortTeamByName((await getMyTeam()) ?? []));
                 setUserRolesById({});
             } else if (activeRole === 'management') {
-                setTeam(await getAllMyTeam() ?? []);
+                setTeam(sortTeamByName((await getAllMyTeam()) ?? []));
 
                 const users = await getAllUsers();
                 const roleMap = users.reduce<Record<number, string[]>>((acc, current) => {
@@ -89,6 +92,8 @@ export default function ReviewsPage() {
 
     const getReviewForEmployee = (employeeId: number) =>
         reviews.find((r) => r.employee.id === employeeId);
+
+    const sortedTeam = sortTeamByName(team);
 
     const getScoreDisplay = (review: ReviewListItem) => {
         const allResponses = review.sections?.flatMap((s) =>
@@ -177,7 +182,7 @@ export default function ReviewsPage() {
             <h1 className="text-xl font-semibold text-[#0d3d5e] mb-6">
                 {activeRole === 'manager' ? 'My Team Reviews' : 'Company Reviews'}
             </h1>
-            {team.length === 0 ? (
+            {sortedTeam.length === 0 ? (
                 <EmptyState message="No team members found." />
             ) : (
                 <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -191,7 +196,7 @@ export default function ReviewsPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {team.map((member, i) => {
+                            {sortedTeam.map((member, i) => {
                                 const review = getReviewForEmployee(member.id);
                                 return (
                                     <tr

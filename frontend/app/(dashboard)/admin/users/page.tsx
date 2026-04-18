@@ -13,6 +13,9 @@ import {
 } from '@/lib/api/admin.api';
 import { PageSpinner, AdminCard, FormInput, FormSelect, FormFooter } from '../_components';
 
+const sortUsersByName = (items: AdminUser[]) =>
+    [...items].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
 export default function AdminUsersPage() {
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [roles, setRoles] = useState<AdminRole[]>([]);
@@ -181,6 +184,7 @@ export default function AdminUsersPage() {
 
     if (loading) return <PageSpinner />;
 
+    const sortedUsers = sortUsersByName(users);
     const rows = buildHierarchyRows(users);
 
     return (
@@ -224,7 +228,7 @@ export default function AdminUsersPage() {
                             label="User"
                             value={roleForm.userId}
                             onChange={(v) => setRoleForm((p) => ({ ...p, userId: v }))}
-                            options={users.map((u) => ({ value: String(u.id), label: `${u.name} (${u.email})` }))}
+                            options={sortedUsers.map((u) => ({ value: String(u.id), label: `${u.name} (${u.email})` }))}
                             placeholder="Select user..."
                         />
                         <FormSelect
@@ -247,14 +251,14 @@ export default function AdminUsersPage() {
                             label="Employee"
                             value={managerForm.employeeId}
                             onChange={(v) => setManagerForm((p) => ({ ...p, employeeId: v }))}
-                            options={users.map((u) => ({ value: String(u.id), label: `${u.name} (${u.email})` }))}
+                            options={sortedUsers.map((u) => ({ value: String(u.id), label: `${u.name} (${u.email})` }))}
                             placeholder="Select employee..."
                         />
                         <FormSelect
                             label="Manager"
                             value={managerForm.managerId}
                             onChange={(v) => setManagerForm((p) => ({ ...p, managerId: v }))}
-                            options={users
+                            options={sortedUsers
                                 .filter((u) => u.roles.includes('manager') || u.roles.includes('management') || u.roles.includes('admin'))
                                 .map((u) => ({ value: String(u.id), label: `${u.name} (${u.email})` }))}
                             placeholder="Select manager..."

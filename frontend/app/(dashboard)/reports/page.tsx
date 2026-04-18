@@ -9,6 +9,9 @@ import { getAllUsers } from '@/lib/api/admin.api';
 import { getAllMyTeam, TeamMember } from '@/lib/api/users.api';
 import { ReportDetail, ReportSectionDetail, ReportPointDetail } from '@/types/review.types';
 
+const sortTeamByName = (members: TeamMember[]) =>
+    [...members].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
 export default function ReportsPage() {
     const { activeRole, user, isInitialized } = useAuthStore();
     const searchParams = useSearchParams();
@@ -24,6 +27,8 @@ export default function ReportsPage() {
     const [loading, setLoading] = useState(false);
     const [teamLoading, setTeamLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    const sortedTeam = sortTeamByName(team);
 
     const canAccessReports = activeRole === 'management' || activeRole === 'admin';
 
@@ -84,7 +89,7 @@ export default function ReportsPage() {
         if (!isInitialized || !canAccessReports || !user) return;
         setTeamLoading(true);
         getAllMyTeam()
-            .then(setTeam)
+            .then((members) => setTeam(sortTeamByName(members ?? [])))
             .finally(() => setTeamLoading(false));
     }, [isInitialized, canAccessReports, user?.userId]);
 
@@ -172,7 +177,7 @@ export default function ReportsPage() {
                             className="flex-1 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-cyan-400"
                         >
                             <option value="" disabled>Choose an employee...</option>
-                            {team.map((m) => (
+                            {sortedTeam.map((m) => (
                                 <option key={m.id} value={m.id}>{m.name}</option>
                             ))}
                         </select>

@@ -13,6 +13,9 @@ type RoleScoreSummary = {
     management: number | null;
 };
 
+const sortTeamByName = (members: TeamMember[]) =>
+    [...members].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
 export default function DashboardPage() {
     const { activeRole, user, isInitialized } = useAuthStore();
     const router = useRouter();
@@ -64,7 +67,7 @@ export default function DashboardPage() {
                 teamMembers = (await getAllMyTeam()) ?? [];
             }
 
-            setTeam(teamMembers);
+            setTeam(sortTeamByName(teamMembers));
 
             if (activeRole !== 'employee') {
                 try {
@@ -244,15 +247,17 @@ function ManagerDashboard({
     canPrintScores: boolean;
     router: ReturnType<typeof useRouter>;
 }) {
+    const sortedTeam = sortTeamByName(team);
+
     // Map employeeId → review
     const reviewByEmployee = new Map<number, ReviewListItem>();
     for (const r of reviews) {
         reviewByEmployee.set(r.employee.id, r);
     }
 
-    const total = team.length;
-    const submitted = team.filter((member) => reviewByEmployee.get(member.id)?.status === 'submitted').length;
-    const pending = team.filter((m) => {
+    const total = sortedTeam.length;
+    const submitted = sortedTeam.filter((member) => reviewByEmployee.get(member.id)?.status === 'submitted').length;
+    const pending = sortedTeam.filter((m) => {
         const r = reviewByEmployee.get(m.id);
         return !r || r.status === 'draft';
     });
@@ -407,7 +412,7 @@ function ManagerDashboard({
                         </button>
                     )}
                 </div>
-                {team.length === 0 ? (
+                {sortedTeam.length === 0 ? (
                     <div className="flex items-center justify-center h-24 text-gray-400 text-sm">
                         No team members found.
                     </div>
@@ -435,7 +440,7 @@ function ManagerDashboard({
                             </tr>
                         </thead>
                         <tbody>
-                            {team.map((member, i) => {
+                            {sortedTeam.map((member, i) => {
                                 const r = reviewByEmployee.get(member.id);
                                 const score = scoreByEmployee[member.id] ?? {
                                     employee: null,
