@@ -4,6 +4,18 @@ on:
   push:
     branches: [main]
     paths: [backend/**]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT_ID: gk1408
+  REGION: us-central1
+  REPOSITORY: brodersen-repo
+  SERVICE: brodersen-backend
+  IMAGE_NAME: backend
 
 jobs:
   deploy:
@@ -16,13 +28,25 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
       - name: Build and push
+        env:
+          IMAGE_TAG: ${{ github.sha }}
         run: |
+          IMAGE_URI="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
           gcloud builds submit backend/ \
-            --tag us-central1-docker.pkg.dev/gk1408/brodersen-repo/backend:latest
+            --tag "${IMAGE_URI}"
 
       - name: Deploy to Cloud Run
+        env:
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          gcloud run deploy brodersen-backend \
-            --image=us-central1-docker.pkg.dev/gk1408/brodersen-repo/backend:latest \
-            --region=us-central1
+          IMAGE_URI="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
+          gcloud run deploy "${{ env.SERVICE }}" \
+            --image="${IMAGE_URI}" \
+            --region="${{ env.REGION }}" \
+            --quiet
