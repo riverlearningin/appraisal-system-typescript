@@ -38,8 +38,9 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           IMAGE_URI="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
-          gcloud builds submit backend/ \
-            --tag "${IMAGE_URI}"
+          gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+          docker build -t "${IMAGE_URI}" ./backend
+          docker push "${IMAGE_URI}"
 
       - name: Deploy to Cloud Run
         env:
